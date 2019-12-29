@@ -14,54 +14,32 @@ Numpy and Pandas were used for general data wrangling, maplotlib and seaborn for
 
 ## Preprocessing
 
-Explain how to run the automated tests for this system
+The preprocessing step is rather short. It searches for missing values in the dataset, normalizes all numerical features to [0,1], plots their distributions to help look for outliers and evaluates categorical feature cardinality.
 
-### Break down into end to end tests
+## Feature Importance Analysis
 
-Explain what these tests test and why
+This step plots the correlation matrix for all numerical features searching for multicolinearity and for features that may be strongly correlated to the target feature directly. N1 and N2 seem to be fairly correlated to the output but are also correlated among themselves. N4 and N5 are also correlated among themselves.
+The information gain ratio of each categorical feature is computed. None of the features shows high information gain.
 
-```
-Give an example
-```
+## Feature Engineering
 
-### And coding style tests
+Since the cardinality of the categorical features is not too high they can be one-hot encoded so that they are compatible with most models while preserving their characteristics.
+A step of PCA is performed between features (N1,N2) and (N4,N5) in order to reduce the overall dimensionality of the dataset.
 
-Explain what these tests test and why
+## Feature Selection
 
-```
-Give an example
-```
+In this step, all features, including the one-hot encodings are selected based on wether or not they correlate with the output variable with a pearson's correlation factor over 0.1 or under -0.1. This extracts value from categorical features that were hindered by uninformative categories and helps future proofing the model in case new categories are added to these features.
 
-## Deployment
+## Modelling
 
-Add additional notes about how to deploy this on a live system
+Four different models were optimized to this dataset using a 10-fold crossvalidation setup over a training set consisting of 70% of the original data.
+The decision tree obtained the lowest results of the group, being surpassed by the logistic regression that, itself was surpassed by both the random forest and the gradient boosting.
+Increasing the depth of the decision tree didn't seem to improve overall results.
+Logistic regression saw some gains with a slight decrease of its default regularization factor.
+Due to the size of the dataset both the random forest and the gradient boosting worked well with a low number of trees. Their performance plateaued at depths similar to that of the decision tree wich leads me to believe their individual predictors are not very dissimilar.
 
-## Built With
+## Model Selection
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+Once the models are optimized they are trained on the whole training set once, evaluated by the 30% of data put on hold before the modelling step and the model with the higher F1-score is chosen (I opted to use the F1-score as my metric as the classes were heavily imbalanced). This model then trained on the whole dataset once and pickled into a file to be used in production.
 
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
-
-## Authors
-
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
-
-## Acknowledgments
-
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+A small sample of processed data is also saved to test the REST API.
