@@ -123,32 +123,46 @@ plt.clf()
 
 #Initial split of 70/30 for train/test data. Seed fixed at 42 for reproducibility.
 df_train, df_test = train_test_split(final_df, test_size=0.3, random_state=42)
+df_train.reset_index(drop=True, inplace=True)
+df_test.reset_index(drop=True, inplace=True)
 
 #LOGISTIC REGRESSION
 #The low ammount of samples made me choose to use a cross validation setup.
 #Only 30% of the samples belong to class 1. F1 score is used to obtain an unbiased evaluation of the model.
 
-d_tree = tree.DecisionTreeClassifier()
+d_tree = tree.DecisionTreeClassifier(criterion="gini", max_depth=5, min_samples_split=10)
 scores = cross_val_score(d_tree, df_train.drop(['LABEL'], axis=1), df_train['LABEL'], cv=10, scoring='f1')
 print("\nDecision Tree:\nF1 cross-val score: %0.2f +/- %0.2f" % (scores.mean(), scores.std() * 2))
 
-log_reg = LogisticRegression(penalty='l2', C=1, solver='lbfgs', max_iter=100)
+log_reg = LogisticRegression(penalty='l2', C=0.4, solver='lbfgs', max_iter=200)
 scores = cross_val_score(log_reg, df_train.drop(['LABEL'], axis=1), df_train['LABEL'], cv=10, scoring='f1')
 print("\nLogistic Regression:\nF1 cross-val score: %0.2f +/- %0.2f" % (scores.mean(), scores.std() * 2))
 
-r_forest = RandomForestClassifier(max_depth=3)
+r_forest = RandomForestClassifier(criterion="gini", n_estimators=20, max_depth=6, min_samples_split=10, max_features=8)
 scores = cross_val_score(r_forest, df_train.drop(['LABEL'], axis=1), df_train['LABEL'], cv=10, scoring='f1')
 print("\nRandom Forest:\nF1 cross-val score: %0.2f +/- %0.2f" % (scores.mean(), scores.std() * 2))
 
-g_boost = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3)
+g_boost = GradientBoostingClassifier(loss="deviance", n_estimators=20, learning_rate=0.1, max_depth=4, min_samples_split=10, max_features=6)
 scores = cross_val_score(g_boost, df_train.drop(['LABEL'], axis=1), df_train['LABEL'], cv=10, scoring='f1')
-print("\nRandom Forest:\nF1 cross-val score: %0.2f +/- %0.2f" % (scores.mean(), scores.std() * 2))
+print("\nGradient Boosting:\nF1 cross-val score: %0.2f +/- %0.2f" % (scores.mean(), scores.std() * 2))
 
 #==============================================================================
 # MODEL SELECTION
 #==============================================================================
-final_model = r_forest.fit(final_df.drop(['LABEL'], axis=1), final_df['LABEL'])
+
+#COMPUTE TEST SCORES
+#Compute test scores for all models with the unseen test set while training on the whole training set.
+f_scores = []
+for model in [d_tree, log_reg, r_forest, g_boost]:
+    model.fit(df_train.drop('LABEL', axis=1), df_train['LABEL'])
+    f_scores.append(metrics.f1_score(df_test['LABEL'], model.predict(df_test.drop('LABEL', axis=1)), pos_label=1, average='binary'))
+
+print("Test set F1 scores: ", f_scores)
+
+#Choose the model with the highest F1 score on the test set, train it on the entire dataset and save it for production use.
+chosen_model = [d_tree, log_reg, r_forest, g_boost][f_scores.index(max(f_scores))]
+final_model = chosen_model.fit(final_df.drop(['LABEL'], axis=1), final_df['LABEL'])
 pickle.dump(final_model, open("final_model.sav", 'wb'))
 
-#a small sample of data to be used to test the REST API
+#take a small sample of data to be used to test the REST API
 final_df.head().drop(['LABEL'], axis=1).to_csv('request_sample.csv', index=False)

@@ -2,7 +2,7 @@
 """
 Created on Sun Dec 29 01:58:20 2019
 
-@author: luis-
+@author: luis
 """
 
 import requests
